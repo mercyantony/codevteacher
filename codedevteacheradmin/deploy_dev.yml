@@ -1,0 +1,58 @@
+version: '3.8'
+
+
+
+services:
+  codedevteacheradmin_dev:
+    image: jafarijason/codedevteacheradmin_${BRANCH_NAME}:${APP_VERSION}
+    networks:
+      - traefik-public
+    env_file:
+      - .env
+    deploy:
+      mode: replicated
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          # - node.role == worker
+          - node.role == manager
+      replicas: 1
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-public
+        - traefik.constraint-label=traefik-public
+        - traefik.http.routers.codedevteacheradmin_dev-http.rule=Host(`${APP_DOMAIN?Variable not set}`)
+        - traefik.http.routers.codedevteacheradmin_dev-http.entrypoints=http
+        - traefik.http.routers.codedevteacheradmin_dev-http.middlewares=https-redirect
+        - traefik.http.routers.codedevteacheradmin_dev-https.rule=Host(`${APP_DOMAIN?Variable not set}`)
+        - traefik.http.routers.codedevteacheradmin_dev-https.entrypoints=https
+        - traefik.http.routers.codedevteacheradmin_dev-https.tls=true
+        - traefik.http.routers.codedevteacheradmin_dev-https.tls.certresolver=le
+        - traefik.http.services.codedevteacheradmin_dev.loadbalancer.server.port=${APP_PORT}
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        delay: 5s
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    command:
+      - /bin/bash
+      - -c
+      - |
+        ./node_modules/http-server/bin/http-server \
+        ./build/ \
+        --proxy http://localhost:${APP_PORT}\? \
+        -p ${APP_PORT}
+    # healthcheck:
+    #   test: ["CMD", "./healthCheck.sh", "${APP_PORT}"]
+
+
+
+
+
+networks:
+  traefik-public:
+    external: true
