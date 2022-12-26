@@ -1,0 +1,56 @@
+version: '3.8'
+
+secrets:
+  codedevteacherapi_dev_env_2:
+    external: true
+
+services:
+  codedevteacherapi_dev:
+    image: jafarijason/codedevteacherapi_${BRANCH_NAME}:${APP_VERSION}
+    networks:
+      - traefik-public
+    env_file:
+      - .env
+    secrets:
+      - codedevteacherapi_dev_env_2
+    environment:
+      - CUSTOM_ENV=/run/secrets/codedevteacherapi_dev_env_2
+    deploy:
+      mode: replicated
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          # - node.role == worker
+          - node.role == manager
+      replicas: 4
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-public
+        - traefik.constraint-label=traefik-public
+        - traefik.http.routers.codedevteacherapi_dev-http.rule=Host(`${APP_DOMAIN?Variable not set}`)
+        - traefik.http.routers.codedevteacherapi_dev-http.entrypoints=http
+        - traefik.http.routers.codedevteacherapi_dev-http.middlewares=https-redirect
+        - traefik.http.routers.codedevteacherapi_dev-https.rule=Host(`${APP_DOMAIN?Variable not set}`)
+        - traefik.http.routers.codedevteacherapi_dev-https.entrypoints=https
+        - traefik.http.routers.codedevteacherapi_dev-https.tls=true
+        - traefik.http.routers.codedevteacherapi_dev-https.tls.certresolver=le
+        - traefik.http.services.codedevteacherapi_dev.loadbalancer.server.port=${APP_PORT}
+      update_config:
+        parallelism: 2
+        order: start-first
+        failure_action: rollback
+        delay: 5s
+      rollback_config:
+        parallelism: 0
+        order: stop-first
+    # healthcheck:
+    #   test: ["CMD", "./healthCheck.sh", "${APP_PORT}"]
+
+
+
+
+
+networks:
+  traefik-public:
+    external: true
